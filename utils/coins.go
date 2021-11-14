@@ -1,4 +1,4 @@
-package helper
+package utils
 
 var Coins = []string{
 	"BTC",

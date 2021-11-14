@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/joaom00/botgo/internal/commands"
+	"github.com/joaom00/botgo/pkg/commands"
 )
 
 func MessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {

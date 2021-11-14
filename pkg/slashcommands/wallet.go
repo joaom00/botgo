@@ -5,7 +5,8 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/joaom00/botgo/internal/services/database"
+	"github.com/joaom00/botgo/internal/database"
+	"github.com/joaom00/botgo/pkg/embedbuilder"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -27,46 +28,60 @@ var WalletCmd = &discordgo.ApplicationCommand{
 }
 
 func WalletHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	content := ""
+	var content string
 
 	switch i.ApplicationCommandData().Options[0].Name {
 	case "criar":
-		cont, err := createWalletHandler(i.Member.User.ID)
+		_, err := database.GetWallet(i.Member.User.ID)
 		if err != nil {
-			log.Println(err)
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Flags:   1 << 6,
-					Content: cont,
-				},
-			})
-			return
+			if err == mongo.ErrNoDocuments {
+				if _, err = database.CreateWallet(i.Member.User.ID); err != nil {
+					content = errMessage
+				}
+				content = "Como é a sua primeira vez, você ganhará `100 JCoins`!"
+			}
+			log.Printf("Error in get a wallet: %v", err)
+			content = errMessage
 		}
 
-		content = cont
-	case "saldo":
-		wallet, err := database.GetWallet(i.Member.User.ID)
-		if err != nil {
-			log.Println(err)
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Flags:   1 << 6,
-					Content: "Algo deu errado ao tentar acessar o seu saldo.\nPor favor, reporte o erro a um moderador",
-				},
-			})
-			return
-		}
+		content = "Você já possui uma carteira"
 
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: fmt.Sprintf("Você possui %dJC", wallet.Amount),
+				Content: content,
+			},
+		})
+	case "saldo":
+		wallet, err := database.GetWallet(i.Member.User.ID)
+		if err != nil {
+			log.Printf("Error in get a wallet: %v", err)
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: errMessage,
+				},
+			})
+		}
+
+		embed := embedbuilder.New().
+			SetAuthor(i.Member.User.Username+"#"+i.Member.User.Discriminator, i.Member.User.AvatarURL("")).
+			SetTitle(fmt.Sprintf("Você possui %.2fJC", wallet.Amount))
+
+		for _, coin := range wallet.Coins {
+			embed.AddField(coin.Symbol, fmt.Sprintf("%.8f", coin.Quantity))
+		}
+
+		embed.AddField("Total", fmt.Sprintf("%.2f", wallet.Total()))
+
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Embeds: []*discordgo.MessageEmbed{embed.MessageEmbed},
 			},
 		})
 	default:
-		content = "Algo deu errado :("
+		content = errMessage
 	}
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -75,19 +90,4 @@ func WalletHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: content,
 		},
 	})
-}
-
-func createWalletHandler(userID string) (string, error) {
-	_, err := database.GetWallet(userID)
-	if err != nil {
-		if err == mongo.ErrNoDocuments {
-			if _, err = database.CreateWallet(userID); err != nil {
-				return "Algo deu errado ao tentar criar sua carteira.\nPor favor, reporte o erro a um moderador", err
-			}
-			return "Como é a sua primeira vez, você ganhará `100 JCoins`!", err
-		}
-		return "Algo deu errado ao tentar criar sua carteira.\nPor favor, reporte o erro a um moderador", err
-	}
-
-	return "Você já possui uma carteira", nil
 }

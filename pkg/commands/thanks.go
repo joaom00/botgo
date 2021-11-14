@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/joaom00/botgo/internal/utils"
+	"github.com/joaom00/botgo/utils"
 )
 
 func Thanks(s *discordgo.Session, m *discordgo.MessageCreate) {

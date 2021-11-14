@@ -5,8 +5,8 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/joaom00/botgo/internal/embedbuilder"
-	"github.com/joaom00/botgo/internal/utils"
+	"github.com/joaom00/botgo/pkg/embedbuilder"
+	"github.com/joaom00/botgo/utils"
 )
 
 var ThanksCmd = &discordgo.ApplicationCommand{

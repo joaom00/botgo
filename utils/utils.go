@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -21,4 +22,14 @@ func GetChannelByName(s *discordgo.Session, channelName string) (channelID strin
 
 	return channelID, nil
 
+}
+
+func Find(arr []string, el string) bool {
+	for _, v := range arr {
+		if v == strings.ToUpper(el) {
+			return true
+		}
+	}
+
+	return false
 }
