@@ -3,12 +3,14 @@ package database
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -22,9 +24,10 @@ var (
 	mongoOnce           sync.Once
 )
 
-type cryptoCoin struct {
-	RegularMarketPrice float64 `json:"regularMarketPrice"`
-}
+const (
+	DB      = "jbot"
+	WALLETS = "wallets"
+)
 
 func (w *wallet) AddSalary() error {
 	client, err := getMongoClient()
@@ -32,7 +35,13 @@ func (w *wallet) AddSalary() error {
 		return err
 	}
 
+	t := w.SalaryTime.Add(24 * time.Hour)
+	if t.After(time.Now()) {
+		return errors.New("only one salary per day")
+	}
+
 	w.Amount += 30
+	w.SalaryTime = time.Now()
 	filter := bson.D{primitive.E{Key: "user_id", Value: w.UserID}}
 	updater := bson.D{primitive.E{Key: "$set", Value: w}}
 
@@ -73,7 +82,7 @@ func (w *wallet) Invest(cryptoCoin string, quantity float64) (float64, error) {
 		return 0, err
 	}
 
-	walletCollection := client.Database("jbot").Collection("wallets")
+	walletCollection := client.Database(DB).Collection(WALLETS)
 	_, err = walletCollection.UpdateOne(context.TODO(), filter, updater)
 	if err != nil {
 		return 0, err
@@ -90,7 +99,7 @@ func GetWallet(userID string) (wallet, error) {
 		return result, err
 	}
 
-	walletCollection := client.Database("jbot").Collection("wallets")
+	walletCollection := client.Database(DB).Collection(WALLETS)
 
 	filter := bson.D{primitive.E{Key: "user_id", Value: userID}}
 
@@ -108,7 +117,7 @@ func CreateWallet(userID string) (wallet, error) {
 		return wallet{}, err
 	}
 
-	walletCollection := client.Database("jbot").Collection("wallets")
+	walletCollection := client.Database(DB).Collection(WALLETS)
 
 	result := wallet{
 		UserID: userID,
@@ -122,6 +131,23 @@ func CreateWallet(userID string) (wallet, error) {
 	}
 
 	return result, nil
+}
+
+func (w *wallet) Total() float64 {
+	var total float64
+	var symbols []string
+
+	for _, coin := range w.Coins {
+		symbols = append(symbols, coin.Symbol)
+	}
+
+	cryptos, _ := getCryptoCoin(symbols)
+
+	for i, coin := range w.Coins {
+		total += cryptos[i].RegularMarketPrice * coin.Quantity
+	}
+
+	return total + w.Amount
 }
 
 func getMongoClient() (*mongo.Client, error) {
@@ -151,23 +177,6 @@ func indexOf(arr []coin, cryptoCoin string) int {
 		}
 	}
 	return -1
-}
-
-func (w *wallet) Total() float64 {
-	var total float64
-	var symbols []string
-
-	for _, coin := range w.Coins {
-		symbols = append(symbols, coin.Symbol)
-	}
-
-	cryptos, _ := getCryptoCoin(symbols)
-
-	for i, coin := range w.Coins {
-		total += cryptos[i].RegularMarketPrice * coin.Quantity
-	}
-
-	return total + w.Amount
 }
 
 func getCryptoCoin(symbols []string) ([]cryptoCoin, error) {

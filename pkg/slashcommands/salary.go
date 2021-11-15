@@ -17,28 +17,51 @@ var SalaryCmd = &discordgo.ApplicationCommand{
 }
 
 func SalaryHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var content string
-
 	wallet, err := database.GetWallet(i.Member.User.ID)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			content = "Você não possui uma carteira, utilize o comando `/carteira criar` para criar uma"
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Você não possui uma carteira, utilize o comando `/carteira criar` para criar uma",
+				},
+			})
+			return
 		}
 		log.Printf("Error in get a wallet: %v", err)
-		content = errMessage
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: errMessage,
+			},
+		})
+		return
 	}
 
 	if err = wallet.AddSalary(); err != nil {
+		if err.Error() == "only one salary per day" {
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Você já ganhou seu salário hoje",
+				},
+			})
+			return
+		}
 		log.Printf("Error in add salary: %v", err)
-		content = errMessage
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: errMessage,
+			},
+		})
+		return
 	}
-
-	content = fmt.Sprintf("Você ganhou 30JC! Agora você possui %.2f JCoins", wallet.Amount)
 
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: content,
+			Content: fmt.Sprintf("Você ganhou 30JC! Agora você possui %.2f JCoins", wallet.Amount),
 		},
 	})
 	if err != nil {

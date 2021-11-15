@@ -16,5 +16,9 @@ type wallet struct {
 	UserID     string             `bson:"user_id"`
 	Amount     float64            `bson:"amount"`
 	Coins      []coin             `bson:"coins"`
-	SalaryTime time.Time
+	SalaryTime time.Time          `bson:"salary_time"`
+}
+
+type cryptoCoin struct {
+	RegularMarketPrice float64 `json:"regularMarketPrice"`
 }

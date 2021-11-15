@@ -31,41 +31,67 @@ var InvestCmd = &discordgo.ApplicationCommand{
 }
 
 func InvestHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var content string
-
 	cryptoCoin := i.ApplicationCommandData().Options[0].StringValue()
 	quantity := i.ApplicationCommandData().Options[1].FloatValue()
 
 	if !utils.Find(utils.Coins, cryptoCoin) {
-		content = fmt.Sprintf("A moeda `%s` não existe. Use `/moedas` para conhecer as moedas válidas", cryptoCoin)
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: fmt.Sprintf("A moeda `%s` não existe. Use `/moedas` para conhecer as moedas válidas", cryptoCoin),
+			},
+		})
+		return
 	}
 
 	wallet, err := database.GetWallet(i.Member.User.ID)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
-			content = "Você não possui uma carteira, utilize o comando `/carteira criar` para criar uma."
+			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Você não possui uma carteira, utilize o comando `/carteira criar` para criar uma.",
+				},
+			})
+			return
 		}
 		log.Printf("Error in get a wallet: %v", err)
-		content = errMessage
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: errMessage,
+			},
+		})
+		return
 	}
 
 	if wallet.Amount < quantity {
-		content = "Você não possui essa quantidade para investir"
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Você não possui essa quantidade para investir",
+			},
+		})
+		return
 	}
 
 	var total float64
 	total, err = wallet.Invest(strings.ToUpper(cryptoCoin), quantity)
 	if err != nil {
 		log.Printf("Error in investing: %v", err)
-		content = errMessage
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: errMessage,
+			},
+		})
+		return
 	}
-
-	content = fmt.Sprintf("O valor investido foi %.2fJC. Agora você tem %.8f%s imaginários", quantity, total, cryptoCoin)
 
 	err = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: content,
+			Content: fmt.Sprintf("O valor investido foi %.2fJC. Agora você tem %.8f%s imaginários", quantity, total, strings.ToUpper(cryptoCoin)),
 		},
 	})
 	if err != nil {

@@ -6,8 +6,8 @@ import (
 	"os/signal"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/joaom00/botgo/handlers"
-	"github.com/joaom00/botgo/internal/slashcommands"
+	"github.com/joaom00/botgo/pkg/handlers"
+	"github.com/joaom00/botgo/pkg/slashcommands"
 	"github.com/joho/godotenv"
 )
 

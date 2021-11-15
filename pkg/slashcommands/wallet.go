@@ -37,31 +37,26 @@ func WalletHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			if err == mongo.ErrNoDocuments {
 				if _, err = database.CreateWallet(i.Member.User.ID); err != nil {
 					content = errMessage
+					break
 				}
 				content = "Como é a sua primeira vez, você ganhará `100 JCoins`!"
+				break
 			}
 			log.Printf("Error in get a wallet: %v", err)
 			content = errMessage
+			break
 		}
-
 		content = "Você já possui uma carteira"
-
-		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: content,
-			},
-		})
 	case "saldo":
 		wallet, err := database.GetWallet(i.Member.User.ID)
 		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				content = "Você não possui uma carteira, utilize o comando `/carteira criar` para criar uma"
+				break
+			}
 			log.Printf("Error in get a wallet: %v", err)
-			s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: errMessage,
-				},
-			})
+			content = errMessage
+			break
 		}
 
 		embed := embedbuilder.New().
